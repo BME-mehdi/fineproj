@@ -20,9 +20,7 @@ export const submitTestData = async (req, res) => {
     });
   }
 
-  // Debug: Log the received form data
-  console.log('Received form data:', req.body);
-  
+  // Extract and validate form data
   const { 
     age, 
     gender, 
@@ -37,105 +35,153 @@ export const submitTestData = async (req, res) => {
     triglycerides 
   } = req.body;
   
-  // Debug: Log individual values
-  console.log('Parsed values:', {
-    age: age, 
-    gender: gender,
-    hemoglobin: hemoglobin,
-    hematocrit: hematocrit,
-    wbc: wbc,
-    platelets: platelets,
-    glucose: glucose,
-    cholesterolTotal: cholesterolTotal,
-    hdl: hdl,
-    ldl: ldl,
-    triglycerides: triglycerides
-  });
+  console.log('Processing analysis for user:', req.session.userId);
+
+  // Convert and validate numeric values
+  const numericData = {
+    age: parseInt(age),
+    hemoglobin: parseFloat(hemoglobin),
+    hematocrit: parseFloat(hematocrit),
+    wbc: parseFloat(wbc),
+    platelets: parseInt(platelets),
+    glucose: parseFloat(glucose),
+    cholesterolTotal: parseFloat(cholesterolTotal),
+    hdl: parseFloat(hdl),
+    ldl: parseFloat(ldl),
+    triglycerides: parseFloat(triglycerides)
+  };
+
+  // Validate numeric conversions
+  for (const [key, value] of Object.entries(numericData)) {
+    if (isNaN(value)) {
+      return res.status(400).render('analyze', {
+        errors: [{ msg: `Valeur invalide pour ${key}` }],
+        inputData: req.body,
+        result: null
+      });
+    }
+  }
 
   const abnormalities = [];
   const recommendations = [];
+  let riskLevel = 'low';
+  let riskScore = 0;
 
   // Blood glucose analysis
-  if (glucose > 126) {
+  if (numericData.glucose > 126) {
     abnormalities.push("Glucose élevé - possible diabète (>126 mg/dL)");
     recommendations.push("Consulter un médecin pour confirmation du diabète et traitement approprié.");
-  } else if (glucose > 100) {
+    riskLevel = 'high';
+    riskScore += 25;
+  } else if (numericData.glucose > 100) {
     abnormalities.push("Glucose légèrement élevé - pré-diabète (100-125 mg/dL)");
     recommendations.push("Réduire les sucres rapides, pratiquer 30 min de sport par jour.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 15;
   }
 
   // Cholesterol analysis
-  if (cholesterolTotal > 240) {
+  if (numericData.cholesterolTotal > 240) {
     abnormalities.push("Cholestérol total très élevé (>240 mg/dL)");
     recommendations.push("Consulter un médecin, régime strict pauvre en graisses saturées.");
-  } else if (cholesterolTotal > 200) {
+    riskLevel = 'high';
+    riskScore += 20;
+  } else if (numericData.cholesterolTotal > 200) {
     abnormalities.push("Cholestérol total élevé (200-240 mg/dL)");
     recommendations.push("Limiter les graisses saturées, consommer plus de fibres.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 10;
   }
 
-  // HDL analysis
-  if (hdl < 40 && gender === 'male') {
-    abnormalities.push("HDL (bon cholestérol) trop bas chez l'homme (<40 mg/dL)");
+  // HDL analysis (gender-specific)
+  const hdlThreshold = gender === 'male' ? 40 : 50;
+  if (numericData.hdl < hdlThreshold) {
+    const genderText = gender === 'male' ? 'chez l\'homme' : 'chez la femme';
+    abnormalities.push(`HDL (bon cholestérol) trop bas ${genderText} (<${hdlThreshold} mg/dL)`);
     recommendations.push("Augmenter l'activité physique, consommer des oméga-3.");
-  } else if (hdl < 50 && gender === 'female') {
-    abnormalities.push("HDL (bon cholestérol) trop bas chez la femme (<50 mg/dL)");
-    recommendations.push("Augmenter l'activité physique, consommer des oméga-3.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 15;
   }
 
   // LDL analysis
-  if (ldl > 160) {
+  if (numericData.ldl > 160) {
     abnormalities.push("LDL (mauvais cholestérol) très élevé (>160 mg/dL)");
     recommendations.push("Régime pauvre en graisses saturées, éventuellement statines selon médecin.");
-  } else if (ldl > 130) {
+    riskLevel = 'high';
+    riskScore += 20;
+  } else if (numericData.ldl > 130) {
     abnormalities.push("LDL (mauvais cholestérol) élevé (130-160 mg/dL)");
     recommendations.push("Réduire les graisses saturées et trans, augmenter les fibres.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 10;
   }
 
   // Triglycerides analysis
-  if (triglycerides > 200) {
+  if (numericData.triglycerides > 200) {
     abnormalities.push("Triglycérides élevés (>200 mg/dL)");
     recommendations.push("Réduire l'alcool et les sucres, perdre du poids si nécessaire.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 15;
   }
 
   // Hemoglobin analysis (gender-specific)
-  if (gender === 'male' && hemoglobin < 13.5) {
-    abnormalities.push("Hémoglobine basse chez l'homme (<13.5 g/dL)");
+  const hemoglobinThreshold = gender === 'male' ? 13.5 : 12.0;
+  if (numericData.hemoglobin < hemoglobinThreshold) {
+    const genderText = gender === 'male' ? 'chez l\'homme' : 'chez la femme';
+    abnormalities.push(`Hémoglobine basse ${genderText} (<${hemoglobinThreshold} g/dL)`);
     recommendations.push("Possible carence en fer, consulter un médecin pour bilan complet.");
-  } else if (gender === 'female' && hemoglobin < 12.0) {
-    abnormalities.push("Hémoglobine basse chez la femme (<12.0 g/dL)");
-    recommendations.push("Possible carence en fer, consommer plus d'aliments riches en fer.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 15;
   }
 
-  // Hematocrit analysis
-  if (gender === 'male' && hematocrit < 38.3) {
-    abnormalities.push("Hématocrite bas chez l'homme (<38.3%)");
+  // Hematocrit analysis (gender-specific)
+  const hematocritThreshold = gender === 'male' ? 38.3 : 35.5;
+  if (numericData.hematocrit < hematocritThreshold) {
+    const genderText = gender === 'male' ? 'chez l\'homme' : 'chez la femme';
+    abnormalities.push(`Hématocrite bas ${genderText} (<${hematocritThreshold}%)`);
     recommendations.push("Évaluation pour anémie, consulter un médecin.");
-  } else if (gender === 'female' && hematocrit < 35.5) {
-    abnormalities.push("Hématocrite bas chez la femme (<35.5%)");
-    recommendations.push("Évaluation pour anémie, consulter un médecin.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 15;
   }
 
   // White blood cells analysis
-  if (wbc > 11.0) {
+  if (numericData.wbc > 11.0) {
     abnormalities.push("Globules blancs élevés (>11.0 ×10³/µL)");
     recommendations.push("Possible infection ou inflammation, consulter un médecin.");
-  } else if (wbc < 4.0) {
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 20;
+  } else if (numericData.wbc < 4.0) {
     abnormalities.push("Globules blancs bas (<4.0 ×10³/µL)");
     recommendations.push("Système immunitaire affaibli possible, consulter un médecin.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 20;
   }
 
   // Platelets analysis
-  if (platelets > 450) {
+  if (numericData.platelets > 450) {
     abnormalities.push("Plaquettes élevées (>450 ×10³/µL)");
     recommendations.push("Risque de thrombose, consulter un hématologue.");
-  } else if (platelets < 150) {
+    riskLevel = 'high';
+    riskScore += 25;
+  } else if (numericData.platelets < 150) {
     abnormalities.push("Plaquettes basses (<150 ×10³/µL)");
     recommendations.push("Risque de saignement, consulter un médecin.");
+    riskLevel = Math.max(riskLevel, 'moderate');
+    riskScore += 20;
+  }
+
+  // Determine final risk level based on score
+  if (riskScore >= 50) {
+    riskLevel = 'critical';
+  } else if (riskScore >= 30) {
+    riskLevel = 'high';
+  } else if (riskScore >= 15) {
+    riskLevel = 'moderate';
   }
 
   try {
-    // Check if user is authenticated
-    if (!req.session || !req.session.userId) {
+    // Verify user authentication
+    if (!req.session?.userId) {
       console.error('User not authenticated - no session userId');
       return res.status(401).render('analyze', {
         errors: [{ msg: 'Vous devez être connecté pour sauvegarder une analyse' }],
@@ -144,33 +190,40 @@ export const submitTestData = async (req, res) => {
       });
     }
 
-    console.log('Attempting to save analysis for user:', req.session.userId);
-    console.log('Form data received:', { age, gender, hemoglobin, hematocrit, wbc, platelets, glucose, cholesterolTotal, hdl, ldl, triglycerides });
-
-    // Create analysis object with validation
+    // Create analysis object with corrected structure
     const analysisData = {
       userId: req.session.userId,
+      age: numericData.age,          // Fixed: moved to root level
+      gender: gender,                // Fixed: moved to root level
       testData: {
-        age: age ? parseInt(age) : null,
-        gender: gender || null,
-        hemoglobin: hemoglobin ? parseFloat(hemoglobin) : null,
-        hematocrit: hematocrit ? parseFloat(hematocrit) : null,
-        wbc: wbc ? parseFloat(wbc) : null,
-        platelets: platelets ? parseInt(platelets) : null,
-        glucose: glucose ? parseFloat(glucose) : null,
-        cholesterolTotal: cholesterolTotal ? parseFloat(cholesterolTotal) : null,
-        hdl: hdl ? parseFloat(hdl) : null,
-        ldl: ldl ? parseFloat(ldl) : null,
-        triglycerides: triglycerides ? parseFloat(triglycerides) : null
+        hemoglobin: numericData.hemoglobin,
+        hematocrit: numericData.hematocrit,
+        wbc: numericData.wbc,
+        platelets: numericData.platelets,
+        glucose: numericData.glucose,
+        cholesterolTotal: numericData.cholesterolTotal,
+        hdl: numericData.hdl,
+        ldl: numericData.ldl,
+        triglycerides: numericData.triglycerides
       },
       analysis: { 
         abnormalities, 
-        recommendations 
+        recommendations,
+        riskLevel,
+        score: Math.min(riskScore, 100) // Cap at 100
       },
+      status: 'completed',
       date: new Date()
     };
 
-    console.log('Analysis data to save:', analysisData);
+    console.log('Saving analysis with structure:', {
+      userId: analysisData.userId,
+      age: analysisData.age,
+      gender: analysisData.gender,
+      testDataKeys: Object.keys(analysisData.testData),
+      abnormalitiesCount: abnormalities.length,
+      riskLevel: riskLevel
+    });
 
     // Save analysis to database
     const analysis = new Analysis(analysisData);
@@ -180,6 +233,8 @@ export const submitTestData = async (req, res) => {
     const result = {
       abnormalities,
       recommendations,
+      riskLevel,
+      score: riskScore,
       date: new Date()
     };
 
@@ -188,25 +243,25 @@ export const submitTestData = async (req, res) => {
       inputData: req.body,
       result
     });
-  } catch (err) {
-    console.error('Detailed error saving analysis:', err);
-    console.error('Error name:', err.name);
-    console.error('Error message:', err.message);
+
+  } catch (error) {
+    console.error('Error saving analysis:', error);
     
-    // More specific error handling
     let errorMessage = 'Erreur lors de la sauvegarde de l\'analyse';
     
-    if (err.name === 'ValidationError') {
-      console.error('Validation errors:', err.errors);
-      const validationErrors = Object.values(err.errors).map(e => e.message);
+    if (error.name === 'ValidationError') {
+      console.error('Validation errors:', error.errors);
+      const validationErrors = Object.values(error.errors).map(e => e.message);
       errorMessage = 'Données invalides: ' + validationErrors.join(', ');
-    } else if (err.name === 'MongoNetworkError') {
+    } else if (error.name === 'MongoNetworkError') {
       errorMessage = 'Erreur de connexion à la base de données';
-    } else if (err.code === 11000) {
-      errorMessage = 'Cette analyse existe déjà';
+    } else if (error.code === 11000) {
+      errorMessage = 'Conflit de données - cette analyse pourrait déjà exister';
+    } else if (error.name === 'CastError') {
+      errorMessage = 'Format de données incorrect';
     }
     
-    // Make sure we always send a response
+    // Always ensure we send a response
     if (!res.headersSent) {
       res.status(500).render('analyze', {
         errors: [{ msg: errorMessage }],
