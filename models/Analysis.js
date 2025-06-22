@@ -1,4 +1,4 @@
-// server/models/Analysis.js
+// models/Analysis.js
 import mongoose from 'mongoose';
 const { Schema } = mongoose;
 
@@ -10,7 +10,7 @@ const analysisSchema = new Schema({
     index: true
   },
   
-  // Données démographiques pour affiner les plages
+  // Données démographiques - moved to root level to match controller
   age: { 
     type: Number, 
     required: [true, 'Âge requis'],
@@ -84,7 +84,6 @@ const analysisSchema = new Schema({
       min: [0, 'Triglycérides doivent être positifs'],
       max: [2000, 'Valeur triglycérides trop élevée'] // mg/dL
     }
-    // Extensible pour d'autres métriques (créatinine, ferritine, TSH, etc.)
   },
   
   analysis: {
@@ -146,29 +145,29 @@ const analysisSchema = new Schema({
   }
 });
 
-// Indexes composés pour les requêtes fréquentes
+// Compound indexes for frequent queries
 analysisSchema.index({ userId: 1, date: -1 });
 analysisSchema.index({ userId: 1, status: 1 });
 analysisSchema.index({ 'analysis.riskLevel': 1, date: -1 });
 
-// Virtual pour calculer l'âge relatif de l'analyse
+// Virtual for calculating relative age of analysis
 analysisSchema.virtual('daysAgo').get(function() {
   return Math.floor((Date.now() - this.date) / (1000 * 60 * 60 * 24));
 });
 
-// Méthode pour marquer comme complétée
+// Method to mark as completed
 analysisSchema.methods.markCompleted = function() {
   this.status = 'completed';
   return this.save();
 };
 
-// Méthode pour ajouter une recommandation
+// Method to add recommendation
 analysisSchema.methods.addRecommendation = function(recommendation) {
   this.analysis.recommendations.push(recommendation);
   return this.save();
 };
 
-// Méthode statique pour trouver les analyses récentes d'un utilisateur
+// Static method to find recent analyses by user
 analysisSchema.statics.findRecentByUser = function(userId, limit = 10) {
   return this.find({ userId })
     .sort({ date: -1 })
@@ -176,7 +175,7 @@ analysisSchema.statics.findRecentByUser = function(userId, limit = 10) {
     .populate('userId', 'email');
 };
 
-// Méthode statique pour trouver les analyses à risque élevé
+// Static method to find high-risk analyses
 analysisSchema.statics.findHighRisk = function() {
   return this.find({ 
     'analysis.riskLevel': { $in: ['high', 'critical'] } 
@@ -185,19 +184,22 @@ analysisSchema.statics.findHighRisk = function() {
   .populate('userId', 'email');
 };
 
-// Validation personnalisée pour vérifier la cohérence des données lipidiques
+// Pre-save validation for lipid data consistency
 analysisSchema.pre('save', function(next) {
   const { cholesterolTotal, hdl, ldl, triglycerides } = this.testData;
   
-  // Vérification approximative de la formule de Friedewald
-  // Cholestérol total ≈ HDL + LDL + (Triglycérides/5)
+  // Skip validation if any required values are missing
+  if (!cholesterolTotal || !hdl || !ldl || !triglycerides) {
+    return next();
+  }
+  
+  // Friedewald formula approximation: Total ≈ HDL + LDL + (Triglycerides/5)
   const calculatedTotal = hdl + ldl + (triglycerides / 5);
-  const tolerance = cholesterolTotal * 0.15; // 15% de tolérance
+  const tolerance = Math.max(cholesterolTotal * 0.15, 20); // 15% tolerance or 20mg/dL minimum
   
   if (Math.abs(cholesterolTotal - calculatedTotal) > tolerance) {
-    const error = new Error('Incohérence dans les valeurs lipidiques');
-    error.name = 'ValidationError';
-    return next(error);
+    console.warn(`Lipid inconsistency detected: Total=${cholesterolTotal}, Calculated=${calculatedTotal.toFixed(1)}`);
+    // Log warning but don't fail save - lab values can have variations
   }
   
   next();
