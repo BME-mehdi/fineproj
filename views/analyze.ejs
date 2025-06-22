@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analyse NFS & Bilan sanguin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <nav class="container flex">
+      <a href="/">Accueil</a>
+      <a href="/dashboard">Tableau de bord</a>
+      <a href="/auth/logout">Déconnexion</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h2>Nouvelle analyse</h2>
+	<% if (typeof errors !== 'undefined' && errors && errors.length > 0) { %>
+		<ul>
+			<% errors.forEach(error => { %>
+			<li style="color:red;"><%= error.msg %></li>
+			<% }) %>
+		</ul>
+	<% } %>
+
+    <form action="/analysis/analyze" method="POST">
+      <fieldset style="margin-bottom:20px;">
+        <legend>Informations personnelles</legend>
+        <label for="age">Âge :</label>
+        <input type="number" name="age" id="age" min="0" max="120" required value="<%= inputData.age || '' %>">
+
+        <label for="gender">Genre :</label>
+        <select name="gender" id="gender" required>
+          <option value="">--Choisir--</option>
+          <option value="male" <%= inputData.gender==='male' ? 'selected' : '' %>>Homme</option>
+          <option value="female" <%= inputData.gender==='female' ? 'selected' : '' %>>Femme</option>
+        </select>
+      </fieldset>
+
+      <fieldset style="margin-bottom:20px;">
+        <legend>Données de laboratoire</legend>
+        <label for="hemoglobin">Hémoglobine (g/dL) :</label>
+        <input type="number" step="0.1" name="hemoglobin" id="hemoglobin" required value="<%= inputData.hemoglobin || '' %>">
+
+        <label for="hematocrit">Hématocrite (%) :</label>
+        <input type="number" step="0.1" name="hematocrit" id="hematocrit" required value="<%= inputData.hematocrit || '' %>">
+
+        <label for="wbc">Globules blancs (×10³/µL) :</label>
+        <input type="number" step="0.1" name="wbc" id="wbc" required value="<%= inputData.wbc || '' %>">
+
+        <label for="platelets">Plaquettes (×10³/µL) :</label>
+        <input type="number" step="1" name="platelets" id="platelets" required value="<%= inputData.platelets || '' %>">
+
+        <label for="glucose">Glucose à jeun (mg/dL) :</label>
+        <input type="number" step="0.1" name="glucose" id="glucose" required value="<%= inputData.glucose || '' %>">
+
+        <label for="cholesterolTotal">Cholestérol total (mg/dL) :</label>
+        <input type="number" step="0.1" name="cholesterolTotal" id="cholesterolTotal" required value="<%= inputData.cholesterolTotal || '' %>">
+
+        <label for="hdl">HDL (mg/dL) :</label>
+        <input type="number" step="0.1" name="hdl" id="hdl" required value="<%= inputData.hdl || '' %>">
+
+        <label for="ldl">LDL (mg/dL) :</label>
+        <input type="number" step="0.1" name="ldl" id="ldl" required value="<%= inputData.ldl || '' %>">
+
+        <label for="triglycerides">Triglycérides (mg/dL) :</label>
+        <input type="number" step="0.1" name="triglycerides" id="triglycerides" required value="<%= inputData.triglycerides || '' %>">
+      </fieldset>
+
+      <button type="submit">Analyser</button>
+    </form>
+
+    <% if (result) { %>
+      <section style="margin-top:30px; background:#eef; padding:15px; border-radius:8px;">
+        <h3>Résultats de l'analyse du <%= new Date(result.date).toLocaleString('fr-FR') %></h3>
+        <% if (result.abnormalities.length === 0) { %>
+          <p style="color:green;">Toutes les valeurs sont dans les plages normales.</p>
+        <% } else { %>
+          <div>
+            <h4>Anomalies détectées :</h4>
+            <ul>
+              <% result.abnormalities.forEach(item => { %>
+                <li><%= item %></li>
+              <% }) %>
+            </ul>
+          </div>
+          <div style="margin-top:10px;">
+            <h4>Recommandations :</h4>
+            <ul>
+              <% result.recommendations.forEach(rec => { %>
+                <li><%= rec %></li>
+              <% }) %>
+            </ul>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
+  </main>
+  <footer>
+    <p>&copy; 2025 Scalable Web App</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <nav class="container flex">
+      <a href="/">Accueil</a>
+      <a href="/auth/signup">Inscription</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h2>Connexion</h2>
+	<% if (typeof errors !== 'undefined' && errors && errors.length > 0) { %>
+		<ul>
+			<% errors.forEach(error => { %>
+			<li style="color:red;"><%= error.msg %></li>
+			<% }) %>
+		</ul>
+	<% } %>
+    <form action="/auth/login" method="POST">
+      <label for="email">Email:</label>
+      <input type="email" name="email" id="email" required>
+      <label for="password">Mot de passe:</label>
+      <input type="password" name="password" id="password" required>
+      <button type="submit">Se connecter</button>
+    </form>
+  </main>
+  <footer>
+    <p>&copy; 2025 Scalable Web App</p>
+  </footer>
+</body>
+</html>

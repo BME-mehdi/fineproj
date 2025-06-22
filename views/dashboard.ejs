@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau de bord</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <nav class="container flex">
+      <a href="/">Accueil</a>
+      <a href="/analysis/analyze">Nouvelle analyse</a>
+      <a href="/auth/logout">Déconnexion</a>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>Tableau de bord</h1>
+    <p>Bienvenue ! Vous pouvez lancer une <a href="/analysis/analyze">nouvelle analyse</a> de vos données sanguines.</p>
+
+    <% if (analyses && analyses.length > 0) { %>
+      <section style="margin-top:20px;">
+        <h2>Vos analyses récentes</h2>
+        <table style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th style="border-bottom:1px solid #ccc; padding:8px; text-align:left;">Date</th>
+              <th style="border-bottom:1px solid #ccc; padding:8px; text-align:left;">Anomalies</th>
+              <th style="border-bottom:1px solid #ccc; padding:8px; text-align:left;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% analyses.forEach(item => { %>
+              <tr>
+                <td style="padding:8px; vertical-align: top;"><%= new Date(item.date).toLocaleDateString('fr-FR') %></td>
+                <td style="padding:8px; vertical-align: top;">
+                  <% if (item.analysis.abnormalities.length === 0) { %>
+                    <span style="color:green;">Aucune</span>
+                  <% } else { %>
+                    <ul style="margin:0; padding-left:20px;">
+                      <% item.analysis.abnormalities.forEach(a => { %>
+                        <li><%= a %></li>
+                      <% }) %>
+                    </ul>
+                  <% } %>
+                </td>
+                <td style="padding:8px; vertical-align: top;">
+                  <!-- Éventuellement un lien pour voir le détail complet -->
+                  <a href="#" onclick="alert('Fonctionnalité de détail non implémentée'); return false;">Voir détail</a>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <% if (analyses.length >= 10) { %>
+          <p><a href="#" onclick="alert('Pagination / plus de résultats à implémenter'); return false;">Voir plus...</a></p>
+        <% } %>
+      </section>
+    <% } else { %>
+      <p>Aucune analyse trouvée. Lancez votre première analyse <a href="/analysis/analyze">ici</a>.</p>
+    <% } %>
+  </main>
+  <footer>
+    <p>&copy; 2025 Scalable Web App</p>
+  </footer>
+</body>
+</html>
